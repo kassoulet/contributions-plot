@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Contributions Visualizer</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gh: {
+                            green: '#2ea44f',
+                            dark: '#0d1117',
+                            card: '#161b22',
+                            border: '#30363d',
+                            accent: '#58a6ff'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-[#0d1117] text-gray-800 dark:text-gray-100 min-h-screen transition-colors duration-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Header -->
+        <header class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 pb-6 border-b border-gray-200 dark:border-gray-800">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-green-500/10 rounded-xl text-green-600 dark:text-green-400">
+                    <i data-lucide="github" class="w-8 h-8"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">GitHub Plot Analytics</h1>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Visualize GitHub contribution history in interactive plot charts</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <button id="themeToggleBtn" class="p-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161b22] hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors">
+                    <i data-lucide="moon" id="themeIcon" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Search & Control Controls -->
+        <section class="mb-8">
+            <div class="bg-white dark:bg-[#161b22] p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800">
+                <form id="searchForm" class="flex flex-col sm:flex-row gap-3">
+                    <div class="relative flex-1">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                            <i data-lucide="user" class="w-5 h-5"></i>
+                        </div>
+                        <input 
+                            type="text" 
+                            id="usernameInput" 
+                            placeholder="Enter GitHub username (e.g., torvalds, gaearon)" 
+                            class="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-green-500 focus:outline-none text-gray-900 dark:text-white placeholder-gray-400 text-sm font-medium transition-all"
+                            required
+                        />
+                    </div>
+                    <button 
+                        type="submit" 
+                        class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-green-600/20 active:scale-95"
+                    >
+                        <i data-lucide="search" class="w-4 h-4"></i>
+                        <span>Fetch Data</span>
+                    </button>
+                    <button 
+                        type="button" 
+                        id="demoBtn" 
+                        class="px-5 py-3 border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl flex items-center justify-center gap-2 transition-colors"
+                    >
+                        <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
+                        <span>Load Sample</span>
+                    </button>
+                </form>
+                
+                <!-- Status Banner -->
+                <div id="statusBanner" class="hidden mt-4 p-3 rounded-xl text-xs sm:text-sm flex items-center gap-2"></div>
+            </div>
+        </section>
+
+        <!-- User Profile Header Summary -->
+        <section id="userHeader" class="hidden mb-8 bg-white dark:bg-[#161b22] p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 flex items-center justify-between flex-wrap gap-4">
+            <div class="flex items-center gap-4">
+                <img id="userAvatar" src="" alt="Avatar" class="w-14 h-14 rounded-full border-2 border-green-500/30">
+                <div>
+                    <h2 id="userName" class="text-xl font-bold"></h2>
+                    <a id="userLink" href="#" target="_blank" class="text-xs text-green-600 dark:text-green-400 hover:underline flex items-center gap-1">
+                        <span id="userHandle"></span>
+                        <i data-lucide="external-link" class="w-3 h-3"></i>
+                    </a>
+                </div>
+            </div>
+            <div id="yearSelector" class="flex gap-2 overflow-x-auto py-1"></div>
+        </section>
+
+        <!-- Stats Summary Grid -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white dark:bg-[#161b22] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                <div class="flex items-center justify-between text-gray-500 dark:text-gray-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Total Contributions</span>
+                    <i data-lucide="git-commit" class="w-4 h-4 text-green-500"></i>
+                </div>
+                <div id="statTotal" class="text-2xl sm:text-3xl font-extrabold tracking-tight">--</div>
+                <div class="text-xs text-gray-400 mt-1">In selected range</div>
+            </div>
+
+            <div class="bg-white dark:bg-[#161b22] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                <div class="flex items-center justify-between text-gray-500 dark:text-gray-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Longest Streak</span>
+                    <i data-lucide="flame" class="w-4 h-4 text-orange-500"></i>
+                </div>
+                <div id="statLongestStreak" class="text-2xl sm:text-3xl font-extrabold tracking-tight">--</div>
+                <div class="text-xs text-gray-400 mt-1">Consecutive days</div>
+            </div>
+
+            <div class="bg-white dark:bg-[#161b22] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                <div class="flex items-center justify-between text-gray-500 dark:text-gray-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Current Streak</span>
+                    <i data-lucide="zap" class="w-4 h-4 text-amber-500"></i>
+                </div>
+                <div id="statCurrentStreak" class="text-2xl sm:text-3xl font-extrabold tracking-tight">--</div>
+                <div class="text-xs text-gray-400 mt-1">Days active</div>
+            </div>
+
+            <div class="bg-white dark:bg-[#161b22] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                <div class="flex items-center justify-between text-gray-500 dark:text-gray-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Peak Day</span>
+                    <i data-lucide="trophy" class="w-4 h-4 text-yellow-500"></i>
+                </div>
+                <div id="statPeak" class="text-2xl sm:text-3xl font-extrabold tracking-tight">--</div>
+                <div id="statPeakDate" class="text-xs text-gray-400 mt-1">Highest single day</div>
+            </div>
+        </section>
+
+        <!-- Main Plot Section -->
+        <section class="bg-white dark:bg-[#161b22] p-5 sm:p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm mb-8">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h3 id="chartTitle" class="text-lg font-bold">Contribution Timeline Plot</h3>
+                    <p id="chartSubtitle" class="text-xs text-gray-500 dark:text-gray-400">Daily contribution density graph over time</p>
+                </div>
+                
+                <!-- Plot View Selector Tabs -->
+                <div class="flex flex-wrap gap-1.5 p-1 bg-gray-100 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-700/50">
+                    <button data-chart="daily" class="chart-tab px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm">
+                        Daily Line
+                    </button>
+                    <button data-chart="monthly" class="chart-tab px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+                        Monthly Bar
+                    </button>
+                    <button data-chart="cumulative" class="chart-tab px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+                        Cumulative
+                    </button>
+                    <button data-chart="weekday" class="chart-tab px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+                        Day Breakdown
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Canvas Container -->
+            <div class="relative w-full h-[360px] sm:h-[420px]">
+                <canvas id="mainChart"></canvas>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Application State
+        const state = {
+            username: '',
+            userData: null,
+            contributions: [], // [{ date: 'YYYY-MM-DD', count: number, day: number }]
+            activeView: 'daily',
+            theme: 'dark',
+            selectedYear: 'all',
+            chartInstance: null
+        };
+
+        // DOM Element Cache
+        const elements = {
+            searchForm: document.getElementById('searchForm'),
+            usernameInput: document.getElementById('usernameInput'),
+            demoBtn: document.getElementById('demoBtn'),
+            themeToggleBtn: document.getElementById('themeToggleBtn'),
+            themeIcon: document.getElementById('themeIcon'),
+            statusBanner: document.getElementById('statusBanner'),
+            userHeader: document.getElementById('userHeader'),
+            userAvatar: document.getElementById('userAvatar'),
+            userName: document.getElementById('userName'),
+            userHandle: document.getElementById('userHandle'),
+            userLink: document.getElementById('userLink'),
+            yearSelector: document.getElementById('yearSelector'),
+            statTotal: document.getElementById('statTotal'),
+            statLongestStreak: document.getElementById('statLongestStreak'),
+            statCurrentStreak: document.getElementById('statCurrentStreak'),
+            statPeak: document.getElementById('statPeak'),
+            statPeakDate: document.getElementById('statPeakDate'),
+            chartTitle: document.getElementById('chartTitle'),
+            chartSubtitle: document.getElementById('chartSubtitle'),
+            chartTabs: document.querySelectorAll('.chart-tab'),
+            mainChartCtx: document.getElementById('mainChart').getContext('2d')
+        };
+
+        // Initialize Application
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            initTheme();
+            setupEventListeners();
+            loadDemoData(); // Auto load preview sample on startup
+        });
+
+        function setupEventListeners() {
+            elements.themeToggleBtn.addEventListener('click', toggleTheme);
+            elements.searchForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const user = elements.usernameInput.value.trim();
+                if (user) fetchGitHubData(user);
+            });
+            elements.demoBtn.addEventListener('click', loadDemoData);
+
+            elements.chartTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    elements.chartTabs.forEach(t => {
+                        t.classList.remove('bg-white', 'dark:bg-gray-700', 'text-gray-900', 'dark:text-white', 'shadow-sm');
+                        t.classList.add('text-gray-600', 'dark:text-gray-400');
+                    });
+                    tab.classList.add('bg-white', 'dark:bg-gray-700', 'text-gray-900', 'dark:text-white', 'shadow-sm');
+                    tab.classList.remove('text-gray-600', 'dark:text-gray-400');
+                    
+                    state.activeView = tab.dataset.chart;
+                    renderChart();
+                });
+            });
+        }
+
+        // Theme Management
+        function initTheme() {
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                state.theme = 'dark';
+                document.documentElement.classList.add('dark');
+            } else {
+                state.theme = 'light';
+                document.documentElement.classList.remove('dark');
+            }
+            updateThemeIcon();
+        }
+
+        function toggleTheme() {
+            state.theme = state.theme === 'dark' ? 'light' : 'dark';
+            document.documentElement.classList.toggle('dark', state.theme === 'dark');
+            updateThemeIcon();
+            if (state.contributions.length > 0) renderChart();
+        }
+
+        function updateThemeIcon() {
+            elements.themeIcon.setAttribute('data-lucide', state.theme === 'dark' ? 'sun' : 'moon');
+            lucide.createIcons();
+        }
+
+        // Fetch Data Logic
+        async function fetchGitHubData(username) {
+            showStatus('Fetching user contributions from GitHub API...', 'info');
+            
+            try {
+                // Fetch public user info
+                const userRes = await fetch(`https://api.github.com/users/${username}`);
+                if (!userRes.ok) throw new Error('User not found');
+                state.userData = await userRes.json();
+
+                // Fetch contribution history via public API proxy
+                const contribRes = await fetch(`https://github-contributions-api.jogruber.de/v4/${username}?y=all`);
+                
+                if (!contribRes.ok) throw new Error('Could not fetch contributions history');
+                
+                const contribData = await contribRes.json();
+                
+                // Process contributions into flat sorted array
+                state.contributions = contribData.contributions.sort((a, b) => new Date(a.date) - new Date(b.date));
+                state.username = username;
+
+                updateUserHeader(contribData.years || []);
+                calculateStats();
+                renderChart();
+                showStatus(`Successfully loaded data for ${username}!`, 'success');
+            } catch (err) {
+                console.warn('API Fetch failed, using fallback notice:', err);
+                showStatus(`API Notice: ${err.message}. Showing sample fallback dataset.`, 'warning');
+                loadDemoData(username);
+            }
+        }
+
+        function showStatus(msg, type) {
+            elements.statusBanner.classList.remove('hidden', 'bg-blue-500/10', 'text-blue-500', 'bg-green-500/10', 'text-green-500', 'bg-amber-500/10', 'text-amber-500');
+            if (type === 'info') elements.statusBanner.classList.add('bg-blue-500/10', 'text-blue-500');
+            else if (type === 'success') elements.statusBanner.classList.add('bg-green-500/10', 'text-green-500');
+            else if (type === 'warning') elements.statusBanner.classList.add('bg-amber-500/10', 'text-amber-500');
+            
+            elements.statusBanner.textContent = msg;
+        }
+
+        // Demo Sample Generator
+        function loadDemoData(preferredName = 'octocat') {
+            state.username = typeof preferredName === 'string' ? preferredName : 'octocat';
+            state.userData = {
+                login: state.username,
+                name: 'Octocat (Sample)',
+                avatar_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png',
+                html_url: `https://github.com/${state.username}`
+            };
+
+            // Generate 365 days of synthetic data
+            const today = new Date();
+            const contribs = [];
+            for (let i = 365; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                
+                // Add realistic variations & weekend drops
+                const dayOfWeek = d.getDay();
+                let isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+                let base = isWeekend ? Math.floor(Math.random() * 3) : Math.floor(Math.random() * 12);
+                
+                // Occasional spikes
+                if (Math.random() > 0.93) base += Math.floor(Math.random() * 15);
+
+                contribs.push({
+                    date: d.toISOString().split('T')[0],
+                    count: base
+                });
+            }
+
+            state.contributions = contribs;
+            updateUserHeader([today.getFullYear().toString()]);
+            calculateStats();
+            renderChart();
+            showStatus(`Displaying realistic demo plot dataset for "${state.username}".`, 'info');
+        }
+
+        function updateUserHeader(years) {
+            elements.userHeader.classList.remove('hidden');
+            elements.userAvatar.src = state.userData.avatar_url;
+            elements.userName.textContent = state.userData.name || state.userData.login;
+            elements.userHandle.textContent = `@${state.userData.login}`;
+            elements.userLink.href = state.userData.html_url;
+
+            // Render Year selector pills
+            elements.yearSelector.innerHTML = '';
+            
+            const allBtn = document.createElement('button');
+            allBtn.className = `px-3 py-1 text-xs font-medium rounded-lg transition-colors ${state.selectedYear === 'all' ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`;
+            allBtn.textContent = 'Last Year';
+            allBtn.onclick = () => { state.selectedYear = 'all'; updateUserHeader(years); renderChart(); };
+            elements.yearSelector.appendChild(allBtn);
+        }
+
+        // Statistics Computation
+        function calculateStats() {
+            const data = state.contributions;
+            if (!data.length) return;
+
+            let total = 0;
+            let peak = { count: 0, date: '' };
+            let currentStreak = 0;
+            let longestStreak = 0;
+            let tempStreak = 0;
+
+            data.forEach((item) => {
+                total += item.count;
+                
+                if (item.count > peak.count) {
+                    peak.count = item.count;
+                    peak.date = item.date;
+                }
+
+                if (item.count > 0) {
+                    tempStreak++;
+                    if (tempStreak > longestStreak) longestStreak = tempStreak;
+                } else {
+                    tempStreak = 0;
+                }
+            });
+
+            // Calculate current streak backward from latest
+            for (let i = data.length - 1; i >= 0; i--) {
+                if (data[i].count > 0) currentStreak++;
+                else break;
+            }
+
+            elements.statTotal.textContent = total.toLocaleString();
+            elements.statLongestStreak.textContent = `${longestStreak} days`;
+            elements.statCurrentStreak.textContent = `${currentStreak} days`;
+            elements.statPeak.textContent = peak.count;
+            elements.statPeakDate.textContent = peak.date ? `on ${peak.date}` : 'No activity';
+        }
+
+        // Plot Rendering Engine
+        function renderChart() {
+            if (state.chartInstance) {
+                state.chartInstance.destroy();
+            }
+
+            const isDark = state.theme === 'dark';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+            const textColor = isDark ? '#9ca3af' : '#4b5563';
+            const accentGreen = '#2ea44f';
+
+            let chartConfig = {};
+
+            switch (state.activeView) {
+                case 'daily':
+                    elements.chartTitle.textContent = 'Daily Contributions Timeline';
+                    elements.chartSubtitle.textContent = 'Continuous line plot of daily contribution counts';
+                    
+                    chartConfig = {
+                        type: 'line',
+                        data: {
+                            labels: state.contributions.map(c => c.date),
+                            datasets: [{
+                                label: 'Contributions',
+                                data: state.contributions.map(c => c.count),
+                                borderColor: accentGreen,
+                                backgroundColor: isDark ? 'rgba(46, 164, 79, 0.15)' : 'rgba(46, 164, 79, 0.1)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 0,
+                                pointHoverRadius: 5,
+                                pointHoverBackgroundColor: accentGreen
+                            }]
+                        },
+                        options: getCommonOptions(gridColor, textColor)
+                    };
+                    break;
+
+                case 'monthly':
+                    elements.chartTitle.textContent = 'Monthly Volume Aggregation';
+                    elements.chartSubtitle.textContent = 'Total contributions grouped by calendar month';
+
+                    // Group daily counts into Months
+                    const monthlyMap = {};
+                    state.contributions.forEach(c => {
+                        const month = c.date.substring(0, 7); // YYYY-MM
+                        monthlyMap[month] = (monthlyMap[month] || 0) + c.count;
+                    });
+
+                    chartConfig = {
+                        type: 'bar',
+                        data: {
+                            labels: Object.keys(monthlyMap),
+                            datasets: [{
+                                label: 'Monthly Contributions',
+                                data: Object.values(monthlyMap),
+                                backgroundColor: accentGreen,
+                                borderRadius: 6
+                            }]
+                        },
+                        options: getCommonOptions(gridColor, textColor)
+                    };
+                    break;
+
+                case 'cumulative':
+                    elements.chartTitle.textContent = 'Cumulative Growth Curve';
+                    elements.chartSubtitle.textContent = 'Total accumulated contributions over time';
+
+                    let sum = 0;
+                    const cumulativeData = state.contributions.map(c => {
+                        sum += c.count;
+                        return sum;
+                    });
+
+                    chartConfig = {
+                        type: 'line',
+                        data: {
+                            labels: state.contributions.map(c => c.date),
+                            datasets: [{
+                                label: 'Cumulative Total',
+                                data: cumulativeData,
+                                borderColor: '#58a6ff',
+                                backgroundColor: isDark ? 'rgba(88, 166, 255, 0.15)' : 'rgba(88, 166, 255, 0.1)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.1,
+                                pointRadius: 0
+                            }]
+                        },
+                        options: getCommonOptions(gridColor, textColor)
+                    };
+                    break;
+
+                case 'weekday':
+                    elements.chartTitle.textContent = 'Day-of-Week Distribution';
+                    elements.chartSubtitle.textContent = 'Contribution activity breakdown by day of the week';
+
+                    const weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                    const dayCounts = [0, 0, 0, 0, 0, 0, 0];
+
+                    state.contributions.forEach(c => {
+                        const dayIndex = new Date(c.date).getDay();
+                        dayCounts[dayIndex] += c.count;
+                    });
+
+                    chartConfig = {
+                        type: 'bar',
+                        data: {
+                            labels: weekDays,
+                            datasets: [{
+                                label: 'Total Contributions',
+                                data: dayCounts,
+                                backgroundColor: [
+                                    '#f87171', '#60a5fa', '#34d399', '#fbbf24', '#a78bfa', '#f472b6', '#fb923c'
+                                ],
+                                borderRadius: 6
+                            }]
+                        },
+                        options: getCommonOptions(gridColor, textColor)
+                    };
+                    break;
+            }
+
+            state.chartInstance = new Chart(elements.mainChartCtx, chartConfig);
+        }
+
+        function getCommonOptions(gridColor, textColor) {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 750,
+                    easing: 'easeOutQuart'
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: state.theme === 'dark' ? '#161b22' : '#ffffff',
+                        titleColor: state.theme === 'dark' ? '#ffffff' : '#111827',
+                        bodyColor: state.theme === 'dark' ? '#9ca3af' : '#4b5563',
+                        borderColor: state.theme === 'dark' ? '#30363d' : '#e5e7eb',
+                        borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 10
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: gridColor },
+                        ticks: { color: textColor, maxTicksLimit: 12 }
+                    },
+                    y: {
+                        grid: { color: gridColor },
+                        ticks: { color: textColor },
+                        beginAtZero: true
+                    }
+                }
+            };
+        }
+    </script>
+</body>
+</html>
