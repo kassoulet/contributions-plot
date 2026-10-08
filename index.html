@@ -138,7 +138,7 @@
 
             <div class="bg-white dark:bg-[#161b22] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
                 <div class="flex items-center justify-between text-gray-500 dark:text-gray-400 mb-2">
-                    <span class="text-xs font-semibold uppercase tracking-wider">Peak Day</span>
+                    <span id="statPeakLabel" class="text-xs font-semibold uppercase tracking-wider">Peak Day</span>
                     <i data-lucide="trophy" class="w-4 h-4 text-yellow-500"></i>
                 </div>
                 <div id="statPeak" class="text-2xl sm:text-3xl font-extrabold tracking-tight">--</div>
@@ -210,6 +210,7 @@
             statCurrentStreak: document.getElementById('statCurrentStreak'),
             statPeak: document.getElementById('statPeak'),
             statPeakDate: document.getElementById('statPeakDate'),
+            statPeakLabel: document.getElementById('statPeakLabel'),
             chartTitle: document.getElementById('chartTitle'),
             chartSubtitle: document.getElementById('chartSubtitle'),
             chartTabs: document.querySelectorAll('.chart-tab'),
@@ -245,6 +246,7 @@
                     tab.classList.remove('text-gray-600', 'dark:text-gray-400');
                     
                     state.activeView = tab.dataset.chart;
+                    calculateStats();
                     renderChart();
                 });
             });
@@ -367,17 +369,26 @@
             if (!data.length) return;
 
             let total = 0;
-            let peak = { count: 0, date: '' };
+            let peakDay = { count: 0, date: '' };
+            let peakMonth = { count: 0, month: '' };
             let currentStreak = 0;
             let longestStreak = 0;
             let tempStreak = 0;
+            const monthlyMap = {};
 
             data.forEach((item) => {
                 total += item.count;
                 
-                if (item.count > peak.count) {
-                    peak.count = item.count;
-                    peak.date = item.date;
+                if (item.count > peakDay.count) {
+                    peakDay.count = item.count;
+                    peakDay.date = item.date;
+                }
+
+                const month = item.date.substring(0, 7);
+                monthlyMap[month] = (monthlyMap[month] || 0) + item.count;
+                if (monthlyMap[month] > peakMonth.count) {
+                    peakMonth.count = monthlyMap[month];
+                    peakMonth.month = month;
                 }
 
                 if (item.count > 0) {
@@ -394,11 +405,15 @@
                 else break;
             }
 
+            const isMonthly = state.activeView === 'monthly';
+            elements.statPeakLabel.textContent = isMonthly ? 'Peak Month' : 'Peak Day';
+            elements.statPeak.textContent = isMonthly ? peakMonth.count : peakDay.count;
+            elements.statPeakDate.textContent = isMonthly 
+                ? (peakMonth.month ? `in ${peakMonth.month}` : 'No activity')
+                : (peakDay.date ? `on ${peakDay.date}` : 'No activity');
             elements.statTotal.textContent = total.toLocaleString();
             elements.statLongestStreak.textContent = `${longestStreak} days`;
             elements.statCurrentStreak.textContent = `${currentStreak} days`;
-            elements.statPeak.textContent = peak.count;
-            elements.statPeakDate.textContent = peak.date ? `on ${peak.date}` : 'No activity';
         }
 
         // Plot Rendering Engine
