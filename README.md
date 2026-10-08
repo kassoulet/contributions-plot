@@ -1,13 +1,12 @@
 # GitHub Contributions Plot Analytics
 
-Interactive webapp to visualize GitHub contribution history in multiple chart views: daily timeline, monthly bars, cumulative growth, and weekday breakdown.
+Interactive webapp to visualize GitHub contribution history in multiple chart views: daily timeline, monthly bars, cumulative growth.
 
 ## Features
 
 - **Daily Line Plot** — Continuous timeline of daily contributions
 - **Monthly Bar Chart** — Aggregated monthly volume
 - **Cumulative Growth** — Running total over time
-- **Weekday Distribution** — Activity breakdown by day of week
 - **Dark/Light mode** — Auto-detects system preference, manual toggle
 - **Real GitHub data** — Fetches from GitHub API via public proxy
 - **Demo fallback** — Works offline with realistic sample data

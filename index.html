@@ -105,7 +105,7 @@
                     </a>
                 </div>
             </div>
-            <div id="yearSelector" class="flex gap-2 overflow-x-auto py-1"></div>
+            
         </section>
 
         <!-- Stats Summary Grid -->
@@ -116,7 +116,6 @@
                     <i data-lucide="git-commit" class="w-4 h-4 text-green-500"></i>
                 </div>
                 <div id="statTotal" class="text-2xl sm:text-3xl font-extrabold tracking-tight">--</div>
-                <div class="text-xs text-gray-400 mt-1">In selected range</div>
             </div>
 
             <div class="bg-white dark:bg-[#161b22] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
@@ -156,7 +155,7 @@
                 </div>
                 
                 <!-- Plot View Selector Tabs -->
-                <div class="flex flex-wrap gap-1.5 p-1 bg-gray-100 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-700/50">
+                <div class="flex flex-wrap items-center gap-1.5 p-1 bg-gray-100 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-700/50">
                     <button data-chart="daily" class="chart-tab px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm">
                         Daily Line
                     </button>
@@ -166,8 +165,9 @@
                     <button data-chart="cumulative" class="chart-tab px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
                         Cumulative
                     </button>
-                    <button data-chart="weekday" class="chart-tab px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
-                        Day Breakdown
+                    <button id="downloadBtn" class="ml-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1.5" title="Download as PNG">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                        <span>Download</span>
                     </button>
                 </div>
             </div>
@@ -213,6 +213,7 @@
             chartTitle: document.getElementById('chartTitle'),
             chartSubtitle: document.getElementById('chartSubtitle'),
             chartTabs: document.querySelectorAll('.chart-tab'),
+            downloadBtn: document.getElementById('downloadBtn'),
             mainChartCtx: document.getElementById('mainChart').getContext('2d')
         };
 
@@ -232,6 +233,7 @@
                 if (user) fetchGitHubData(user);
             });
             elements.demoBtn.addEventListener('click', loadDemoData);
+            elements.downloadBtn.addEventListener('click', downloadChart);
 
             elements.chartTabs.forEach(tab => {
                 tab.addEventListener('click', () => {
@@ -357,15 +359,6 @@
             elements.userName.textContent = state.userData.name || state.userData.login;
             elements.userHandle.textContent = `@${state.userData.login}`;
             elements.userLink.href = state.userData.html_url;
-
-            // Render Year selector pills
-            elements.yearSelector.innerHTML = '';
-            
-            const allBtn = document.createElement('button');
-            allBtn.className = `px-3 py-1 text-xs font-medium rounded-lg transition-colors ${state.selectedYear === 'all' ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`;
-            allBtn.textContent = 'Last Year';
-            allBtn.onclick = () => { state.selectedYear = 'all'; updateUserHeader(years); renderChart(); };
-            elements.yearSelector.appendChild(allBtn);
         }
 
         // Statistics Computation
@@ -501,38 +494,17 @@
                         options: getCommonOptions(gridColor, textColor)
                     };
                     break;
-
-                case 'weekday':
-                    elements.chartTitle.textContent = 'Day-of-Week Distribution';
-                    elements.chartSubtitle.textContent = 'Contribution activity breakdown by day of the week';
-
-                    const weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                    const dayCounts = [0, 0, 0, 0, 0, 0, 0];
-
-                    state.contributions.forEach(c => {
-                        const dayIndex = new Date(c.date).getDay();
-                        dayCounts[dayIndex] += c.count;
-                    });
-
-                    chartConfig = {
-                        type: 'bar',
-                        data: {
-                            labels: weekDays,
-                            datasets: [{
-                                label: 'Total Contributions',
-                                data: dayCounts,
-                                backgroundColor: [
-                                    '#f87171', '#60a5fa', '#34d399', '#fbbf24', '#a78bfa', '#f472b6', '#fb923c'
-                                ],
-                                borderRadius: 6
-                            }]
-                        },
-                        options: getCommonOptions(gridColor, textColor)
-                    };
-                    break;
             }
 
             state.chartInstance = new Chart(elements.mainChartCtx, chartConfig);
+        }
+
+        function downloadChart() {
+            const canvas = document.getElementById('mainChart');
+            const link = document.createElement('a');
+            link.download = `github-contributions-${state.username || 'demo'}-${state.activeView}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
         }
 
         function getCommonOptions(gridColor, textColor) {
